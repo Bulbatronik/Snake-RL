@@ -14,6 +14,21 @@ class Direction(Enum):
     DOWN = 4
 
 
+KEY2DIR = {
+    pygame.K_LEFT: Direction.LEFT,
+    pygame.K_RIGHT: Direction.RIGHT,
+    pygame.K_UP: Direction.UP,
+    pygame.K_DOWN: Direction.DOWN,
+}
+
+DIR_INV = {
+    Direction.LEFT: Direction.RIGHT,
+    Direction.RIGHT: Direction.LEFT,
+    Direction.UP: Direction.DOWN,
+    Direction.DOWN: Direction.UP,
+}
+
+
 Point = namedtuple("Point", "x, y")
 BLOCK_SIZE = 20
 SPEED = 10
@@ -56,50 +71,9 @@ class SnakeGame:
         if self.food in self.snake:
             self._place_food()
 
-    def play_step(self):
-        for event in pygame.event.get():
-            # if event.type == pygame.QUIT:
-            #    pygame.quit()
-            #   quit()
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_LEFT:
-                    if self.direction == Direction.RIGHT:
-                        self._swap_direction()
-                    self.direction = Direction.LEFT
-                elif event.key == pygame.K_RIGHT:
-                    if self.direction == Direction.LEFT:
-                        self._swap_direction()
-                    self.direction = Direction.RIGHT
-                elif event.key == pygame.K_UP:
-                    if self.direction == Direction.DOWN:
-                        self._swap_direction()
-                    self.direction = Direction.UP
-                elif event.key == pygame.K_DOWN:
-                    if self.direction == Direction.UP:
-                        self._swap_direction()
-                    self.direction = Direction.DOWN
-
-        self._move(self.direction)
-
-        game_over = False
-        if self._is_collision():
-            game_over = True
-            return game_over, self.score
-
-        if self.head == self.food:
-            self.score += 1
-            self._place_food()
-        else:
-            self.snake.pop()
-
-        self._update_ui()
-        self.clock.tick(SPEED)
-
-        return game_over, self.score
-
-    def _swap_direction(self):
-        self.head, self.snake[-1] = self.snake[-1], self.head
-        self.snake[0] = self.head
+    def _invert_snake(self):
+        self.snake.reverse()
+        self.head = self.snake[0]
 
     def _is_collision(self):
         if self.head in self.snake[1:]:
@@ -153,3 +127,31 @@ class SnakeGame:
 
         self.head = Point(x, y)
         self.snake.insert(0, self.head)
+
+    def play_step(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+            if event.type == pygame.KEYDOWN:
+                direction = KEY2DIR[event.key]
+                if self.direction == DIR_INV[direction]:
+                    self._invert_snake()
+                self.direction = direction
+
+        self._move(self.direction)
+
+        game_over = False
+        if self._is_collision():
+            game_over = True
+            return game_over, self.score
+
+        if self.head == self.food:
+            self.score += 1
+            self._place_food()
+        else:
+            self.snake.pop()
+
+        self._update_ui()
+        self.clock.tick(SPEED)
+
+        return game_over, self.score
