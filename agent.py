@@ -2,7 +2,13 @@ import torch
 import random
 import numpy as np
 from collections import deque
+from model import Linear_QNet, QTrainer
 from snake import SnakeGameAI, Direction, Point, BLOCK_SIZE
+from helper import plot
+
+import os
+
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 MAX_MEMORY = 100_000
 BATCH_SIZE = 1000
@@ -12,11 +18,11 @@ LR = 0.001
 class Agent:
     def __init__(self):
         self.n_games = 0
-        self.epsilon = 0
-        self.gamma = 0
+        self.epsilon = 0.1
+        self.gamma = 0.9
         self.memory = deque(maxlen=MAX_MEMORY)
-        self.model = None
-        self.trainer = None
+        self.model = Linear_QNet(input_size=11, hidden_size=256, output_size=4)
+        self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
 
     def get_state(self, game):
         head = game.snake[0]
@@ -76,16 +82,19 @@ class Agent:
         self.trainer.train_step(states, actions, rewards, next_states, dones)
 
     def get_action(self, state):
-        self.epsilon = 80 - self.n_games
-        final_move = [0, 0, 0]
-        if random.randint(0, 200) < self.epsilon:
-            move = random.randint(0, 2)
+        # self.epsilon = self.n_games
+        final_move = [0, 0, 0, 0]
+        if random.uniform(0, 1) < self.epsilon:
+            move = random.randint(0, 3)
             final_move[move] = 1
         else:
             state0 = torch.tensor(state, dtype=torch.float)
-            prediction = self.model.predict(state0)
+            prediction = self.model(state0)
             move = torch.argmax(prediction).item()
             final_move[move] = 1
+        print("final_move", final_move)
+        # self.epsilon *= 0.99
+        print("self.epsilon", self.epsilon)
         return final_move
 
 
@@ -96,6 +105,7 @@ def train():
     record = 0
     agent = Agent()
     game = SnakeGameAI()
+
     while True:
         state_old = agent.get_state(game)
         final_move = agent.get_action(state_old)
@@ -113,7 +123,15 @@ def train():
             agent.train_long_memory()
             if score > record:
                 record = score
-        print("Game {}| Score {}}| Record {}".format(agent.n_games, score, record))
+                agent.model.save()
+
+            print("Game {} | Score {} | Record {}".format(agent.n_games, score, record))
+
+            plot_scores.append(score)
+            total_score += score
+            mean_score = total_score / agent.n_games
+            plot_mean_scores.append(mean_score)
+            plot(plot_scores, plot_mean_scores)
 
 
 if __name__ == "__main__":

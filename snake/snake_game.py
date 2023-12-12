@@ -32,7 +32,7 @@ DIR_INV = {
 
 Point = namedtuple("Point", "x, y")
 BLOCK_SIZE = 20
-SPEED = 10
+SPEED = 40
 
 
 WHITE = (255, 255, 255)
@@ -79,8 +79,8 @@ class SnakeGameAI:
         self.snake.reverse()
         self.head = self.snake[0]
 
-    def is_collision(self, pt):
-        if pt in self.snake[1:]:
+    def is_collision(self, pt=None):
+        if self.head in self.snake[1:]:
             return True
         return False
 
