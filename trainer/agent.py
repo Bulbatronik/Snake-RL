@@ -2,17 +2,18 @@ import torch
 import random
 import numpy as np
 from collections import deque
-from model import Linear_QNet, QTrainer
-from snake import SnakeGameAI, Direction, Point, BLOCK_SIZE
-from helper import plot
+from trainer.training import QTrainer
+from trainer.model import Linear_QNet
+from snake.utils import Point, Direction
+from snake.snake_game import BLOCK_SIZE
 
-import os
-
-os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+NUM_STATES = 12
+HIDDEN_SIZE = 256
+NUM_ACTIONS = 4
+LR = 0.001
 
 MAX_MEMORY = 100_000
 BATCH_SIZE = 1000
-LR = 0.001
 
 
 class Agent:
@@ -21,7 +22,9 @@ class Agent:
         self.epsilon = 0.1
         self.gamma = 0.9
         self.memory = deque(maxlen=MAX_MEMORY)
-        self.model = Linear_QNet(input_size=11, hidden_size=256, output_size=4)
+        self.model = Linear_QNet(
+            input_size=NUM_STATES, hidden_size=HIDDEN_SIZE, output_size=NUM_ACTIONS
+        )
         self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
 
     def get_state(self, game):
@@ -53,6 +56,11 @@ class Agent:
             or (dir_u and game.is_collision(point_l))
             or (dir_r and game.is_collision(point_u))
             or (dir_l and game.is_collision(point_d)),
+            # back
+            (dir_d and game.is_collision(point_u))
+            or (dir_u and game.is_collision(point_d))
+            or (dir_r and game.is_collision(point_l))
+            or (dir_l and game.is_collision(point_r)),
             # direction
             dir_l,
             dir_r,
@@ -83,6 +91,7 @@ class Agent:
 
     def get_action(self, state):
         # self.epsilon = self.n_games
+        
         final_move = [0, 0, 0, 0]
         if random.uniform(0, 1) < self.epsilon:
             move = random.randint(0, 3)
@@ -92,47 +101,5 @@ class Agent:
             prediction = self.model(state0)
             move = torch.argmax(prediction).item()
             final_move[move] = 1
-        print("final_move", final_move)
-        # self.epsilon *= 0.99
-        print("self.epsilon", self.epsilon)
+
         return final_move
-
-
-def train():
-    plot_scores = []
-    plot_mean_scores = []
-    total_score = 0
-    record = 0
-    agent = Agent()
-    game = SnakeGameAI()
-
-    while True:
-        state_old = agent.get_state(game)
-        final_move = agent.get_action(state_old)
-
-        reward, done, score = game.play_step(final_move)
-        state_new = agent.get_state(game)
-
-        agent.train_short_memory(state_old, final_move, reward, state_new, done)
-
-        agent.remember(state_old, final_move, reward, state_new, done)
-
-        if done:
-            game.reset()
-            agent.n_games += 1
-            agent.train_long_memory()
-            if score > record:
-                record = score
-                agent.model.save()
-
-            print("Game {} | Score {} | Record {}".format(agent.n_games, score, record))
-
-            plot_scores.append(score)
-            total_score += score
-            mean_score = total_score / agent.n_games
-            plot_mean_scores.append(mean_score)
-            plot(plot_scores, plot_mean_scores)
-
-
-if __name__ == "__main__":
-    train()

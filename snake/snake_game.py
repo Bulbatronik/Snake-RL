@@ -1,45 +1,14 @@
 import pygame
 import random
 import numpy as np
-from enum import Enum
-from collections import namedtuple
+from snake.utils import Direction, Point
+from snake.colors import WHITE, BLACK, BLUE1, BLUE2, RED
 
 pygame.init()
 font = pygame.font.SysFont("arial", 25)
 
-
-class Direction(Enum):
-    RIGHT = 1
-    LEFT = 2
-    UP = 3
-    DOWN = 4
-
-
-KEY2DIR = {
-    pygame.K_LEFT: Direction.LEFT,
-    pygame.K_RIGHT: Direction.RIGHT,
-    pygame.K_UP: Direction.UP,
-    pygame.K_DOWN: Direction.DOWN,
-}
-
-DIR_INV = {
-    Direction.LEFT: Direction.RIGHT,
-    Direction.RIGHT: Direction.LEFT,
-    Direction.UP: Direction.DOWN,
-    Direction.DOWN: Direction.UP,
-}
-
-
-Point = namedtuple("Point", "x, y")
-BLOCK_SIZE = 20
-SPEED = 40
-
-
-WHITE = (255, 255, 255)
-RED = (200, 0, 0)
-BLUE1 = (0, 0, 255)
-BLUE2 = (0, 100, 255)
-BLACK = (0, 0, 0)
+BLOCK_SIZE = 20  # Size of a square on a display
+SPEED = 60  # Speed of the snake
 
 
 class SnakeGameAI:
@@ -156,25 +125,30 @@ class SnakeGameAI:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
-            # if event.type == pygame.KEYDOWN:
-            #    direction = KEY2DIR[event.key]
-            #    if self.direction == DIR_INV[direction]:
-            #        self._invert_snake()
-            #    self.direction = direction
 
         self._move(action)
 
         reward = 0
         game_over = False
-        if self.is_collision() or self.frame_iteration > 100 * len(self.snake):
+
+        # Bit itself
+        if self.is_collision():
+            game_over = True
+            reward = -50
+            return reward, game_over, self.score
+
+        # Ate the food
+        elif self.head == self.food:
+            reward = 100
+            self.score += 1
+            self._place_food()
+            self.frame_iteration = 0
+
+        # Too long
+        elif self.frame_iteration > 100 * len(self.snake):
             game_over = True
             reward = -10
             return reward, game_over, self.score
-
-        if self.head == self.food:
-            reward = 10
-            self.score += 1
-            self._place_food()
         else:
             self.snake.pop()
 
